@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Homework 2.3</title>
+  </head>
+
+  <body>
+    <div>
+      <code>Random Variate Count </code>
+      <input id="rv" type="number" /><br />
+      <code>Class Interval Count </code>
+      <input id="ci" type="number" /><br />
+    </div>
+    <script>
+      "use strict";
+
+      let randomVariateCount = 0;
+      let classIntervalCount = 0;
+
+      const enterRandomVariate = (e) => {
+        randomVariateCount = Number(e.target.value);
+        randomVariateCount > 0 && classIntervalCount > 0 && processInput();
+      };
+
+      const enterClassInterval = (e) => {
+        classIntervalCount = Number(e.target.value);
+        randomVariateCount > 0 && classIntervalCount > 0 && processInput();
+      };
+
+      document
+        .getElementById("rv")
+        .addEventListener("change", enterRandomVariate);
+      document
+        .getElementById("ci")
+        .addEventListener("change", enterClassInterval);
+
+      const processInput = () => {
+        const counts = new Array(classIntervalCount).fill(0);
+
+        for (let i = 0; i < randomVariateCount; i++) {
+          const rv = Math.random();
+          const ci = Math.floor(rv * classIntervalCount);
+          counts[ci]++;
+        }
+
+        const data = {
+          x: Array.from(counts.keys()),
+          y: counts,
+        };
+
+        console.log({ data });
+      };
+    </script>
+  </body>
+</html>
