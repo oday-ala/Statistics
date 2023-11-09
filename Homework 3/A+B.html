@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>System Attack Charts</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-top: 50px;
+      }
+
+      .input-container {
+        margin-bottom: 20px;
+      }
+
+      #chart-container {
+        width: 80%;
+        height: 400px;
+        border: 1px solid #ccc;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Homework 3 JS Charts</h1>
+    <div class="container">
+      <p>
+        <label for="M">Number of Systems (M):</label>
+        <input id="M" type="number" value="10" min="1" step="1" />
+      </p>
+      <p>
+        <label for="N">Number of Attacks (N):</label>
+        <input id="N" type="number" value="10" min="1" step="1" />
+      </p>
+      <p>
+        <label for="p">Probability of successful attack (P): </label>
+        <input id="p" type="number" value="0.3" min="0" max="1" step="0.1" />
+      </p>
+      <p>
+        <label for="nthAttack">N-th attack: </label>
+        <input
+          id="nthAttack"
+          type="number"
+          value="2"
+          min="0"
+          max="100000"
+          step="1"
+        />
+      </p>
+    </div>
+
+    <div style="display: flex">
+      <div style="width: 50%">
+        <canvas id="myCanvas"></canvas>
+      </div>
+      <canvas
+        id="histogramChart"
+        style="width: 50%; max-width: 700px; margin: 5px"
+      ></canvas>
+    </div>
+    <div style="display: flex">
+      <div class="canvas-wrapper">
+        <h3>Frequency</h3>
+        <canvas id="myCanvas2"></canvas>
+      </div>
+      <div class="canvas-wrapper">
+        <h3>Relative frequency</h3>
+        <canvas id="myCanvas3"></canvas>
+      </div>
+      <div class="canvas-wrapper">
+        <h3>Normalized Ratio</h3>
+        <canvas id="myCanvas4"></canvas>
+      </div>
+    </div>
+
+    <script>
+      "use strict";
+      class SystemAttackCharts {
+        constructor() {
+          this.M = document.getElementById("M");
+          this.N = document.getElementById("N");
+          this.p = document.getElementById("p");
+          this.nthAttack = document.getElementById("nthAttack");
+
+          this.myCanvas = document.getElementById("myCanvas").getContext("2d");
+          this.myCanvas2 = document
+            .getElementById("myCanvas2")
+            .getContext("2d");
+          this.myCanvas3 = document
+            .getElementById("myCanvas3")
+            .getContext("2d");
+          this.myCanvas4 = document
+            .getElementById("myCanvas4")
+            .getContext("2d");
+          this.histogramChart = document
+            .getElementById("histogramChart")
+            .getContext("2d");
+
+          this.colorSystems = [];
+          this.set = 0;
+          this.listAttacks = [];
+          this.xValues = [];
+
+          this.init();
+        }
+
+        init() {
+          this.addInputListeners();
+          this.ReloadAttacks();
+          this.ReloadAttacksFrequency();
+        }
+
+        addInputListeners() {
+          const inputs = [this.N, this.p, this.M];
+          inputs.forEach((input) => {
+            input.addEventListener("input", () => {
+              this.ReloadAttacks();
+              this.ReloadAttacksFrequency();
+            });
+          });
+
+          this.nthAttack.addEventListener("input", () => {
+            this.CalculateFrequencyHistogram();
+          });
+        }
+
+        ReloadAttacks() {
+          const numberAttacks = this.N.value;
+          const probability = this.p.value;
+          const numberSystems = this.M.value;
+
+          this.xValues = Array.from({ length: numberAttacks }, (_, i) => i);
+          this.listAttacks = this.GenerateAttacks(
+            numberAttacks,
+            probability,
+            numberSystems
+          );
+
+          this.DrawChart(this.listAttacks, numberSystems, this.myCanvas);
+        }
+
+        ReloadAttacksFrequency() {
+          const numberAttacks = this.N.value;
+          const probability = this.p.value;
+          const numberSystems = this.M.value;
+
+          const frequencyValue = this.AttacksCalculation(
+            numberAttacks,
+            probability,
+            numberSystems
+          );
+          const listCumulatedFrequencies = frequencyValue[0];
+          const listRelativeFrequencies = frequencyValue[1];
+          const listNormalizedFrequencies = frequencyValue[2];
+
+          this.DrawChart(
+            listCumulatedFrequencies,
+            numberSystems,
+            this.myCanvas2
+          );
+          this.DrawChart(
+            listRelativeFrequencies,
+            numberSystems,
+            this.myCanvas3
+          );
+          this.DrawChart(
+            listNormalizedFrequencies,
+            numberSystems,
+            this.myCanvas4
+          );
+
+          this.CalculateFrequencyHistogram();
+        }
+
+        GenerateAttacks(numberAttacks, probability, numberSystems) {
+          const allAttacks = [];
+
+          for (let j = 0; j < numberSystems; j++) {
+            const yValues = [0];
+            let sumAttacks = 0;
+
+            for (let i = 1; i < numberAttacks; i++) {
+              if (Math.random() >= probability) {
+                sumAttacks += 1;
+              } else {
+                sumAttacks -= 1;
+              }
+              yValues.push(sumAttacks);
+            }
+            allAttacks.push(yValues);
+          }
+
+          return allAttacks;
+        }
+
+        AttacksCalculation(numberAttacks, probability, numberSystems) {
+          const cumulated = [];
+          const relative = [];
+          const normalized = [];
+
+          for (let j = 0; j < numberSystems; j++) {
+            const yValuesCumulated = [0];
+            const yValuesRelative = [0];
+            const yValuesNormalized = [0];
+            let sumAttacksCumulated = 0;
+            let sumAttacksRelative = 0;
+            let sumAttacksNormalized = 0;
+            let totalAttacks = 0;
+
+            for (let i = 1; i < numberAttacks; i++) {
+              totalAttacks += 1;
+
+              if (Math.random() >= probability) {
+                sumAttacksCumulated += 1;
+                sumAttacksRelative = sumAttacksCumulated / totalAttacks;
+                sumAttacksNormalized =
+                  sumAttacksCumulated / Math.sqrt(totalAttacks);
+              }
+              yValuesCumulated.push(sumAttacksCumulated);
+              yValuesRelative.push(sumAttacksRelative);
+              yValuesNormalized.push(sumAttacksNormalized);
+            }
+            totalAttacks = 0;
+
+            cumulated.push(yValuesCumulated);
+            relative.push(yValuesRelative);
+            normalized.push(yValuesNormalized);
+          }
+          return [cumulated, relative, normalized];
+        }
+
+        DrawChart(attacks, systems, context) {
+          context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+
+          const datasets = [];
+
+          for (let i = this.set; i < this.M.value; i++) {
+            const randomColor = this.getRandomRGBAColor();
+            this.colorSystems.push(randomColor);
+            this.set++;
+          }
+
+          for (let i = 0; i < systems; i++) {
+            datasets.push({
+              label: `System ${i + 1}`,
+              fill: false,
+              backgroundColor: this.colorSystems[i],
+              borderColor: this.colorSystems[i],
+              data: attacks[i],
+            });
+          }
+
+          const myChart = new Chart(context, {
+            type: "line",
+            data: {
+              labels: this.xValues,
+              datasets: datasets,
+            },
+            options: {
+              responsive: true,
+              elements: {
+                line: {
+                  tension: 0.1,
+                },
+              },
+              legend: {
+                display: false,
+              },
+              tooltips: {
+                enabled: false,
+              },
+            },
+          });
+        }
+
+        getRandomRGBAColor() {
+          const r = Math.floor(Math.random() * 256);
+          const g = Math.floor(Math.random() * 256);
+          const b = Math.floor(Math.random() * 256);
+          const a = Math.random();
+
+          return `rgba(${r}, ${g}, ${b}, ${a})`;
+        }
+
+        CalculateFrequencyHistogram() {
+          let xAxesHistogram = [];
+          let yAxesHistogram = [];
+          let xAxesHistogramAttackN = [];
+
+          const lastValues = this.listAttacks.map((arr) => arr[arr.length - 1]);
+          const nthAttack = this.listAttacks.map(
+            (arr) => arr[this.nthAttack.value]
+          );
+
+          let tempList = [];
+          let tempMax = [];
+          let tempMin = [];
+
+          for (let i = 0; i < this.listAttacks[0].length; i++) {
+            tempList = this.listAttacks.map((arr) =>
+              i < arr.length ? arr[i] : 0
+            );
+            tempMax.push(Math.max(...tempList));
+            tempMin.push(Math.min(...tempList));
+          }
+
+          const max = Math.max(...tempMax);
+          const min = Math.min(...tempMin);
+
+          for (let i = max; i >= min; i--) {
+            yAxesHistogram.push(i);
+          }
+          xAxesHistogram = new Array(yAxesHistogram.length).fill(0);
+          xAxesHistogramAttackN = new Array(yAxesHistogram.length).fill(0);
+
+          for (let i = 0; i < yAxesHistogram.length; i++) {
+            for (let j = 0; j < lastValues.length; j++) {
+              if (yAxesHistogram[i] == lastValues[j]) {
+                xAxesHistogram[i]++;
+              }
+              if (yAxesHistogram[i] == nthAttack[j]) {
+                xAxesHistogramAttackN[i]++;
+              }
+            }
+          }
+
+          const data = {
+            labels: yAxesHistogram,
+            datasets: [
+              {
+                label: "Last Attack",
+                data: xAxesHistogram,
+                backgroundColor: this.getRandomRGBAColor(),
+                borderWidth: 1,
+              },
+              {
+                label: `${this.nthAttack.value}-th Attack`,
+                data: xAxesHistogramAttackN,
+                backgroundColor: this.getRandomRGBAColor(),
+                borderWidth: 1,
+              },
+            ],
+          };
+
+          const horizontalHistogram = new Chart(this.histogramChart, {
+            type: "horizontalBar",
+            data: data,
+            options: {
+              indexAxis: "y",
+              scales: {
+                xAxes: [
+                  {
+                    ticks: {
+                      min: 0,
+                    },
+                  },
+                ],
+              },
+            },
+          });
+        }
+      }
+
+      const systemAttackCharts = new SystemAttackCharts();
+    </script>
+  </body>
+</html>

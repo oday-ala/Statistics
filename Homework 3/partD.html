@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Attacks Animation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
+</head>
+<body>
+    <canvas id="myCanvas" width="800" height="400"></canvas>
+
+    <script>
+       "use strict";
+
+        class Histogram {
+            constructor(ctx, M, N, probabilities) {
+                this.ctx = ctx;
+                this.M = M;
+                this.N = N;
+                this.probabilities = probabilities;
+
+                this.chartData = {
+                    labels: Array.from({ length: N }, (_, i) => `Day ${i + 1}`),
+                    datasets: Array.from({ length: M }, (_, i) => ({
+                        label: `System ${i + 1}`,
+                        data: Array.from({ length: N }, () => 0),
+                        backgroundColor: `rgba(${Math.random() * 255},${Math.random() * 255},${Math.random() * 255},0.2)`,
+                        borderColor: `rgba(${Math.random() * 255},${Math.random() * 255},${Math.random() * 255},1)`,
+                        borderWidth: 1,
+                        fill: true,
+                    })),
+                };
+
+                this.options = {
+                    responsive: true,
+                    animation: {
+                        duration: 1000,
+                        easing: 'linear',
+                        onComplete: function () {
+                            const chartInstance = this.chart;
+                            const ctx = chartInstance.ctx;
+                            ctx.font = Chart.helpers.fontString(Chart.defaults.global.defaultFontSize, 'normal', Chart.defaults.global.defaultFontFamily);
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'bottom';
+
+                            this.data.datasets.forEach(function (dataset, i) {
+                                const meta = chartInstance.controller.getDatasetMeta(i);
+                                meta.data.forEach(function (bar, index) {
+                                    const data = dataset.data[index];
+                                    ctx.fillText(data, bar._model.x, bar._model.y - 5);
+                                });
+                            });
+                        },
+                    },
+                    scales: {
+                        yAxes: [{
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Number of Attacks',
+                            },
+                            ticks: {
+                                beginAtZero: true,
+                            },
+                        }],
+                        xAxes: [{
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Day',
+                            },
+                        }],
+                    },
+                };
+
+                this.chart = new Chart(this.ctx, {
+                    type: 'bar',
+                    data: this.chartData,
+                    options: this.options,
+                });
+            }
+
+            updateChart() {
+                for (let i = 0; i < this.M; i++) {
+                    for (let j = 0; j < this.N; j++) {
+                        let numAttacks = 0;
+                        for (let k = 0; k <= j; k++) {
+                            if (Math.random() < this.probabilities[k]) {
+                                numAttacks++;
+                            }
+                        }
+                        this.chartData.datasets[i].data[j] = numAttacks;
+                    }
+                }
+                this.chart.update();
+            }
+        }
+
+        class ResizableRectangle {
+            constructor(canvasId, chart) {
+                this.canvasId = canvasId;
+                this.chart = chart;
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.dragging = false;
+                this.lastX = 0;
+
+                this.canvas.addEventListener('mousedown', this.startDragging.bind(this));
+                document.addEventListener('mousemove', this.drag.bind(this));
+                document.addEventListener('mouseup', this.stopDragging.bind(this));
+            }
+
+            startDragging(event) {
+                this.dragging = true;
+                this.lastX = event.clientX;
+            }
+
+            drag(event) {
+                if (this.dragging) {
+                    const deltaX = event.clientX - this.lastX;
+                    const rectLeft = this.canvas.offsetLeft;
+                    const newLeft = rectLeft + deltaX;
+
+                    if (newLeft >= 0) {
+                        this.canvas.style.left = newLeft + 'px';
+                        this.chart.chartArea.left = newLeft;
+                        this.chart.update();
+                    }
+
+                    this.lastX = event.clientX;
+                }
+            }
+
+            stopDragging() {
+                this.dragging = false;
+            }
+        }
+
+        const M = 5; // Number of computer systems
+        const N = 10; // Number of days
+        const probabilities = Array.from({ length: N }, (_, i) => 0.1 * (i + 1)); // Probabilities of attacks (0.1, 0.2, ..., 1.0)
+
+        const ctx = document.getElementById("myCanvas").getContext("2d");
+        const histogram = new Histogram(ctx, M, N, probabilities);
+        const resizableRectangle = new ResizableRectangle("myCanvas", histogram);
+
+        setInterval(() => {
+            histogram.updateChart();
+        }, 1500); // Update the chart every 1.5 seconds
+    </script>
+</body>
+</html>

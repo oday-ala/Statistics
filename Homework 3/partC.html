@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Attacks Animation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
+</head>
+<body>
+    <canvas id="myCanvas" width="800" height="400"></canvas>
+
+    <script>
+       "use strict";
+
+        const M = 5; // Number of computer systems
+        const N = 10; // Number of days
+        const probabilities = Array.from({ length: M }, () => Math.random()); // Generate random probabilities for each system
+
+        const ctx = document.getElementById("myCanvas").getContext("2d");
+
+        const data = {
+            labels: Array.from({ length: N }, (_, i) => `Day ${i + 1}`),
+            datasets: Array.from({ length: M }, (_, i) => ({
+                label: `System ${i + 1}`,
+                data: Array.from({ length: N }, () => 0),
+                backgroundColor: `rgba(${Math.random() * 255},${Math.random() * 255},${Math.random() * 255},0.2)`,
+                borderColor: `rgba(${Math.random() * 255},${Math.random() * 255},${Math.random() * 255},1)`,
+                borderWidth: 1,
+                fill: true,
+            })),
+        };
+
+        const options = {
+            responsive: true,
+            animation: {
+                duration: 1000,
+                easing: 'linear',
+                onComplete: function () {
+                    const chartInstance = this.chart;
+                    const ctx = chartInstance.ctx;
+                    ctx.font = Chart.helpers.fontString(Chart.defaults.global.defaultFontSize, 'normal', Chart.defaults.global.defaultFontFamily);
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+
+                    this.data.datasets.forEach(function (dataset, i) {
+                        const meta = chartInstance.controller.getDatasetMeta(i);
+                        meta.data.forEach(function (bar, index) {
+                            const data = dataset.data[index];
+                            ctx.fillText(data, bar._model.x, bar._model.y - 5);
+                        });
+                    });
+                },
+            },
+            scales: {
+                yAxes: [{
+                    scaleLabel: {
+                        display: true,
+                        labelString: 'Cumulative Number of Attacks',
+                    },
+                    ticks: {
+                        beginAtZero: true,
+                    },
+                }],
+                xAxes: [{
+                    scaleLabel: {
+                        display: true,
+                        labelString: 'Day',
+                    },
+                }],
+            },
+        };
+
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: data,
+            options: options,
+        });
+
+        function updateChart() {
+            for (let i = 0; i < M; i++) {
+                let cumulativeAttacks = 0;
+                for (let j = 0; j < N; j++) {
+                    if (Math.random() < probabilities[i]) {
+                        cumulativeAttacks++;
+                    }
+                    chart.data.datasets[i].data[j] = cumulativeAttacks;
+                }
+            }
+            chart.update();
+        }
+
+        setInterval(updateChart, 1500); // Update the chart every 1.5 seconds
+    </script>
+</body>
+</html>
