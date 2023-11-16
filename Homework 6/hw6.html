@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>System Security Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      .canvas-container {
+        width: 100%;
+        height: 100%;
+        /* overflow: auto; */
+      }
+
+      canvas {
+        border: 1px solid #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="canvas-container">
+      <canvas id="securityChart"></canvas>
+    </div>
+
+    <div>
+      <label for="numAttacks">Number of Attacks (N): </label>
+      <input type="number" id="numAttacks" value="50" />
+    </div>
+    <div>
+      <label for="numSystems">Number of Systems (M): </label>
+      <input type="number" id="numSystems" value="100" />
+    </div>
+    <div>
+      <label for="penetrationRate">Penetration Rate (P): </label>
+      <input type="number" id="penetrationRate" step="0.01" value="0.5" />
+    </div>
+    <div>
+      <label for="securityThreshold">Security Threshold (S): </label>
+      <input type="number" id="securityThreshold" value="60" />
+    </div>
+    <button onclick="updateChart()">Update Chart</button>
+
+    <script>
+      "use strict";
+      const canvasContainer = document.querySelector(".canvas-container");
+      const canvas = document.getElementById("securityChart");
+      const ctx = canvas.getContext("2d");
+      let N = 50; // Default value for N
+      let M = 100; // Default value for M
+      let P = 0.5; // Default value for P
+      let S = 60; // Default value for S
+      const P_values = [60]; // Threshold values for P
+      const scaleFactor = 2; // Adjust scale factor as needed
+
+      function startDrag(e) {
+        this.drag = {
+          startX: e.clientX,
+          startY: e.clientY,
+          offsetX: canvas.scrollLeft,
+          offsetY: canvas.scrollTop,
+        };
+      }
+
+      function drag(e) {
+        if (this.drag) {
+          e.preventDefault();
+          canvas.scrollLeft = this.drag.offsetX + this.drag.startX - e.clientX;
+          canvas.scrollTop = this.drag.offsetY + this.drag.startY - e.clientY;
+        }
+      }
+
+      function stopDrag() {
+        this.drag = null;
+      }
+
+      function simulateScore(N, p) {
+        let score = 0;
+        const scores = [];
+        for (let i = 0; i < N; i++) {
+          const probability = Math.random();
+          score += probability < p ? 1 : -1;
+          scores.push(score);
+        }
+        return scores;
+      }
+
+      function countFirstThresholds(scores, S, P_values) {
+        const counts = {};
+        for (const scoreArr of scores) {
+          let hasReachedS = false;
+          let hasReachedP = {};
+
+          for (const score of scoreArr) {
+            if (!hasReachedS && score <= S) {
+              counts[S] = (counts[S] || 0) + 1;
+              hasReachedS = true;
+            }
+
+            for (const P of P_values) {
+              if (score >= P) {
+                if (!hasReachedP[P]) {
+                  hasReachedP[P] = true;
+                  counts[P] = (counts[P] || 0) + 1;
+                }
+              }
+            }
+          }
+        }
+        return counts;
+      }
+
+      function drawChart(M, N, p, S, ctx, canvas, P_values) {
+        const chartWidth = canvas.width * scaleFactor;
+        const chartHeight = canvas.height * scaleFactor;
+
+        const xOffset = 50;
+        const yOffset = chartHeight / 2;
+        const xScale = (chartWidth - xOffset) / N;
+        const yScale = yOffset / N; // Updated to include both positive and negative numbers
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const allScores = [];
+        const colors = generateColors(M);
+
+        // Drawing the chart axis, labels, and simulation paths
+        ctx.strokeStyle = "black";
+        ctx.beginPath();
+        ctx.moveTo(xOffset, 0);
+        ctx.lineTo(xOffset, canvas.height);
+        ctx.moveTo(xOffset, yOffset);
+        ctx.lineTo(xOffset + chartWidth, yOffset);
+        ctx.stroke();
+
+        // Drawing horizontal lines for every y-value
+        for (let i = -N; i <= N; i += 2) {
+          if (i === S || i === -S) {
+            ctx.strokeStyle = "rgba(0, 255, 0, 1)";
+          } else if (P_values.includes(Math.abs(i))) {
+            ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
+          } else {
+            ctx.strokeStyle = "rgba(200, 200, 200, 0.5)";
+          }
+          ctx.beginPath();
+          ctx.moveTo(xOffset, yOffset + i * yScale); // Use yOffset + i * yScale for positioning
+          ctx.lineTo(xOffset + chartWidth, yOffset + i * yScale); // Use yOffset + i * yScale for positioning
+          ctx.stroke();
+        }
+
+        ctx.textAlign = "right";
+        for (let i = -N; i <= N; i += 2) {
+          ctx.textBaseline = "middle";
+          ctx.fillText(i, xOffset - 10, yOffset - i * yScale);
+        }
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        for (let i = 1; i <= N; i++) {
+          let horizontalAdjustment = 0;
+          ctx.fillText(
+            i,
+            xOffset + i * xScale + horizontalAdjustment,
+            yOffset + 10
+          );
+        }
+
+        for (let system = 0; system < M; system++) {
+          const scores = simulateScore(N, p);
+          allScores.push(scores);
+          ctx.strokeStyle = colors[system];
+          ctx.beginPath();
+          ctx.moveTo(xOffset, yOffset);
+
+          for (let attack = 0; attack < N; attack++) {
+            ctx.lineTo(
+              xOffset + (attack + 1) * xScale,
+              yOffset - scores[attack] * yScale
+            );
+            ctx.save();
+            ctx.arc(
+              xOffset + (attack + 1) * xScale,
+              yOffset - scores[attack] * yScale,
+              1,
+              0,
+              2 * Math.PI
+            );
+            ctx.fillStyle = colors[system];
+            ctx.fill();
+            ctx.restore();
+            ctx.moveTo(
+              xOffset + (attack + 1) * xScale,
+              yOffset - scores[attack] * yScale
+            );
+          }
+
+          ctx.stroke();
+        }
+
+        // Draw the histogram bars for each threshold value from right to left
+        const maxBarWidth = N * xScale;
+        for (let threshold of P_values) {
+          const counts = countFirstThresholds(allScores, S, [
+            threshold,
+            -threshold,
+          ]);
+          const count = counts[threshold] || 0;
+          const barLength = (count / M) * maxBarWidth;
+          const barWidth = yScale * 10;
+          const barStartY =
+            threshold < 0
+              ? yOffset - threshold * yScale
+              : yOffset - threshold * yScale - 22;
+          const barStartX = xOffset + N * xScale - barLength;
+
+          ctx.save();
+          ctx.fillStyle =
+            threshold < 0 ? "rgba(0, 255, 0, 0.6)" : "rgba(255, 0, 0, 0.6)";
+          ctx.fillRect(barStartX, barStartY, barLength, barWidth);
+          ctx.strokeStyle = "black";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(barStartX, barStartY, barLength, barWidth);
+          ctx.restore();
+        }
+      }
+
+      function generateColors(numColors) {
+        const colors = [];
+        for (let i = 0; i < numColors; i++) {
+          const color = `rgba(${Math.floor(Math.random() * 256)}, ${Math.floor(
+            Math.random() * 256
+          )}, ${Math.floor(Math.random() * 256)}, 1)`;
+          colors.push(color);
+        }
+        return colors;
+      }
+
+      function updateChart() {
+        N = parseInt(document.getElementById("numAttacks").value);
+        M = parseInt(document.getElementById("numSystems").value);
+        P = parseFloat(document.getElementById("penetrationRate").value);
+        S = parseInt(document.getElementById("securityThreshold").value);
+
+        const chartCanvas = document.getElementById("securityChart");
+        chartCanvas.width = 800; // Increase the width of the chart
+        const chartCtx = chartCanvas.getContext("2d");
+        drawChart(M, N, P, S, chartCtx, chartCanvas, P_values);
+      }
+
+      canvasContainer.addEventListener("mousedown", startDrag);
+      canvasContainer.addEventListener("mousemove", drag);
+      canvasContainer.addEventListener("mouseup", stopDrag);
+      canvasContainer.addEventListener("mouseleave", stopDrag);
+
+      updateChart();
+    </script>
+  </body>
+</html>
